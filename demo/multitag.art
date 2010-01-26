@@ -1,0 +1,21 @@
+--- !artml.rubyforge.org,2004/layout |
+
+multi_tags
++-----------------------------------+
+| hello_text .a .b                  |
++-----------------------------------+
+
+--- !artml.rubyforge.org,2004/style
+
+.a:
+  background: red
+
+.b:
+  font_size: 32pt
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: "Multi-Tag Styles Example"
+
+hello_text    : Multi-tagged!

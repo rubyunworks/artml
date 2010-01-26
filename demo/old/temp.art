@@ -1,0 +1,14 @@
+--- |
+  
+  this is a test
+  of this problem
+
+---
+
+text:
+  background-color: blue
+insert_table:
+  font-size: 6pt
+.general:
+  background: yellow
+ 

@@ -1,0 +1,55 @@
+--- !artml.rubyforge.org,2004/art |
+
+  example1 .form_class
+  +-------+-------------------------------+----------------------+
+  | [input_field]                         | "Label" .label       |
+  +-------+-------------------------------+----------------------+
+  | {{listbox}} .listbox .big                                    |
+  |                                                              |
+  +-------+-------------------------------+----------------------+
+  |       | "Check Me" (check) .f         | [[multitext]] .mtext |
+  +-------+-------------------------------+                      +
+  | <Button> {select} .h                  |                      |
+  +-------+-------------------------------+----------------------+
+  | insert_table                          | general .general     |
+  |                                       |                      |
+  +-------+-------------------------------+----------------------+
+  ! 10%   ! 45%                           ! 45%                  !
+
+--- !artml.rubyforge.org,2004/meta
+  
+title: Test
+  
+--- !artml.rubyforge.org,2004/style
+
+Table:
+  border: 1px solid black
+example1:
+  width: 100%
+  background: orange
+input_field:
+  background-color: blue
+listbox:
+  font-size: 6pt
+.listbox:
+  width: 100%
+.big:
+  font-size: 22pt
+  
+--- !artml.rubyforge.org,2004/data
+  
+input_field:
+  value: Type Here
+Button:
+  value: Click Me!
+select:
+  options:
+    - 1
+    - 2
+    - 3
+listbox:
+  options:
+    - A
+    - B
+    - C
+

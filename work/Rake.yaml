@@ -1,0 +1,68 @@
+--- %YAML:1.0
+PKG_TITLE: &title ARTML
+PKG_NAME: artml
+PKG_VERSION: '0.0.1'
+PKG_AUTHOR: Thomas Sawyer
+PKG_EMAIL: transami@runbox.com
+PKG_SUMMARY: Ascii Art Template Tool
+PKG_DESCRIPTION: >
+  ArtML is meta-template system. It generates templates in a variety of formats based
+  on ascii drawings of what the layouy should look like. It is rather advanced, 
+  with symbols for many common GUI elements. You can also insert templates within templates
+  to build quite complex layout structures quite easily. Adapters are used to generate
+  the templates, so formats such as xhtml, eruby embedded xhtml, IOWA templates, XUL, 
+  Glade XML, or any other kind can be made. As of this version, the static xhtml and eruby
+  adapters are functional.
+
+# site info
+PKG_HOMEPAGE:  #"http://artml.rubyforge.org"
+PKG_RUBYFORGE_PROJECT:  #'artml'
+PKG_RUBYFORGE_PASS:
+
+# all package files
+PKG_FILES:
+  - 'lib/**/*'
+  - 'test/**/*'
+  - 'examples/**/*'
+  - 'doc/**/*'
+  - '[A-Z]*'
+  - 'Rakefile'
+  - 'Rake.yaml'
+
+# rdoc
+RDOC_TITLE: *title
+RDOC_DIR: doc
+RDOC_TEMPLATE: html
+RDOC_OPTIONS: ''
+RDOC_INCLUDE: [ 'README', 'CHANGELOG', 'TODO', 'LICENSE', 'lib/**/*.rb', 'bin/**/*.rb' ]
+RDOC_EXCLUDE: []
+
+# include in distribution
+PKG_DIST_DIRS: [ 'bin', 'lib', 'test', 'examples' ]
+PKG_DIST_FILES:
+  - Rakefile
+  - Rake.yaml
+  - README
+  - TODO
+  - CHANGELOG
+  - VERSION
+  - LICENSE
+
+# tests
+PKG_TEST_DIR: test
+PKG_TEST_FILES:
+  - 'test/*_test.rb'
+  - 'test/**/*_test.rb'
+
+# include in library installation (manual mode)
+# need to improve, I have bin/ stuff to install!
+PKG_LIB_DIR: lib
+PKG_LIB_MKDIRS: '**/*/'
+PKG_LIB_FILES: '**/*.rb'
+PKG_LIB_DEPRECATE: []
+
+# binary files for manual install
+PKG_BIN_DIR: bin
+PKG_BIN_FILES: '**/*'
+PKG_BIN_DEPRECATE: []
+

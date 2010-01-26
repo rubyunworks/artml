@@ -1,0 +1,225 @@
+# rakefile for succ
+# this will run test, build packages, install,
+# generate rdocs, and (once ready) publish the stuff.
+# modified from active_record's rakefile
+
+require 'yaml'
+require 'rubygems'
+require 'rake'
+require 'rake/testtask'
+require 'rake/rdoctask'
+require 'rake/packagetask'
+require 'rake/gempackagetask'
+#require 'rake/contrib/rubyforgepublisher'
+
+# load config from Rake.yaml and make constants
+ry = YAML::load( File.open('Rake.yaml') )
+ry.each { |c,v| self.class.const_set(c,v) }
+
+# ready, set, go!
+puts "SIMPLE RAKE PACKAGING ASSITANT\nRaking #{PKG_TITLE}..."
+
+##
+# Default Task
+##
+
+desc "Default Task (test_suite)"
+task :default => [ :test_suite ]
+
+
+##
+# = Run Unit Tests
+##
+
+Rake::TestTask.new("test_suite") { |t|
+  #t.desc "Run all tests"
+  t.libs << PKG_TEST_DIR
+  PKG_TEST_FILES.each { |pat| t.pattern = pat }
+  t.verbose = true
+}
+
+
+##
+# = Genereate RDoc Documentation
+##
+
+Rake::RDocTask.new { |rdoc|
+  rdoc.rdoc_dir = RDOC_DIR
+  rdoc.template = RDOC_TEMPLATE
+  rdoc.title    = RDOC_TITLE
+  rdoc.options << '--line-numbers --inline-source ' + RDOC_OPTIONS
+  rdoc.rdoc_files.include(*RDOC_INCLUDE)
+  rdoc.rdoc_files.exclude(*RDOC_EXCLUDE)
+  
+  #rdoc.rdoc_files.include('README', 'CHANGELOG', 'TODO', 'LICENSE')
+  #rdoc.rdoc_files.include('lib/**/*.rb')
+}
+
+
+##
+# = Publish Documentation
+##
+
+# Publish documentation
+#desc "Publish the API documentation"
+#task :pdoc => [:rdoc] do 
+#  Rake::SshDirPublisher.new("david@hunter.5th.dk", "sites/rubyonrails.org/ar", "doc").upload
+#end
+
+if PKG_RUBYFORGE_PROJECT
+  desc "Publish to RubyForge"
+  task :rubyforge do
+      Rake::RubyForgePublisher.new(PKG_RUBYFORGE_PROJECT, PKG_RUBYFORGE_PASS).upload
+  end
+end
+
+
+##
+# = Create Compressed Packages
+##
+
+dist_dirs = PKG_DIST_DIRS
+
+spec = Gem::Specification.new do |s|
+  s.name = PKG_NAME
+  s.version = PKG_VERSION
+  s.summary = PKG_SUMMARY
+  s.description = PKG_DESCRIPTION
+
+  s.files = PKG_DIST_FILES
+  dist_dirs.each do |dir|
+    s.files.concat Dir.glob( "#{dir}/**/*" ).delete_if { |item| item.include?( "CVS" ) }
+  end
+  #s.files.delete "test/fixtures/fixture_database.sqlite"
+  s.require_path = 'lib'
+  s.autorequire = '#{PKG_NAME}'
+  s.has_rdoc = true
+  s.author = PKG_AUTHOR
+  s.email = PKG_EMAIL
+  s.homepage = PKG_HOMEPAGE if PKG_HOMEPAGE
+  s.rubyforge_project = PKG_RUBYFORGE_PROJECT if PKG_RUBYFORGE_PROJECT
+end
+  
+Rake::GemPackageTask.new(spec) do |p|
+  p.gem_spec = spec
+  p.need_tar = true
+  p.need_zip = true
+end
+
+task :lines do
+  lines = 0
+  codelines = 0
+  Dir.foreach("lib/#{PKG_NAME}") { |file_name| 
+    next unless file_name =~ /.*rb/
+    
+    f = File.open("lib/#{PKG_NAME}/" + file_name)
+
+    while line = f.gets
+      lines += 1
+      next if line =~ /^\s*$/
+      next if line =~ /^\s*#/
+      codelines += 1
+    end
+  }
+  puts "Lines #{lines}, LOC #{codelines}"
+end
+
+
+##
+# = Manual Install
+##
+
+desc "Manual Installation"
+task :manual_install do
+  
+  # install for Succ
+  # this was adapted from rdoc's install.rb by ways of Log4r
+  
+  require 'rbconfig'
+  require 'find'
+  require 'ftools'
+  
+  include Config
+  
+  $sitedir = CONFIG["sitelibdir"]
+  unless $sitedir
+    version = CONFIG["MAJOR"] + "." + CONFIG["MINOR"]
+    $libdir = File.join(CONFIG["libdir"], "ruby", version)
+    $sitedir = $:.find {|x| x =~ /site_ruby/ }
+    if !$sitedir
+      $sitedir = File.join($libdir, "site_ruby")
+    elsif $sitedir !~ Regexp.quote(version)
+      $sitedir = File.join($sitedir, version)
+    end
+  end
+  
+  # change dir to package libs
+  Dir.chdir(PKG_LIB_DIR)
+  
+  # make lib dirs in ruy sitedir
+  makedirs = FileList[*PKG_LIB_MKDIRS].to_a
+  makedirs.each {|f| File::makedirs( File.join( $sitedir, *f.split(/\//) ) ) }
+  
+  # deprecated files that should be removed
+  deprecated = FileList[*PKG_LIB_DEPRECATE].to_a
+
+  # files to install in library path
+  files = FileList[*PKG_LIB_FILES].to_a
+  
+  # the actual gruntwork
+  File::safe_unlink *deprecated.collect{|f| File.join($sitedir, f.split(/\//))}
+  files.each do |f| 
+    File::install(f, File.join($sitedir, *f.split(/\//)), 0644, true)
+  end
+
+end
+
+
+
+# OLD CONSTANTS (WILL DELETE SOON)
+
+=begin
+PKG_TITLE = 'Succ'
+PKG_NAME = 'succ'
+PKG_VERSION = "0.0.1"
+PKG_AUTHOR = "Thomas Sawyer"
+PKG_EMAIL = "transami@runbox.com"
+PKG_HOMEPAGE = nil #"http://succ.rubyforge.org"
+PKG_RUBYFORGE_PROJECT = nil  #'succ'
+PKG_RUBYFORGE_PASS = nil
+PKG_SUMMARY = "Ruby StdLib.succ"
+PKG_DESCRIPTION = %q{Succ provides additional methods to Ruby's Standard Library objects abd adds a couple new ones. There are fairly common additions, most of which are farily well refined too.}
+
+# all package files
+PKG_FILES = FileList[
+  "lib/**/*", 
+  "test/**/*",
+  "examples/**/*",
+  "doc/**/*",
+  "[A-Z]*",
+  "install.rb",
+  "Rakefile"
+]
+
+# rdoc
+RDOC_TITLE = PKG_TITLE
+RDOC_DIR = 'doc'
+RDOC_TEMPLATE = 'html'
+RDOC_OPTIONS = ''
+RDOC_INCLUDE = ['README', 'CHANGELOG', 'TODO', 'LICENSE', 'lib/**/*.rb']
+RDOC_EXCLUDE = []
+
+# include in distribution
+PKG_DIST_DIRS = [ "lib", "test", "examples" ]
+PKG_DIST_FILES = [ "Rakefile", "install.rb", "README", "TODO", "CHANGELOG", "VERSION", "LICENSE" ]
+
+# include in library installation (manual mode)
+PKG_LIB_DIR = 'lib'
+PKG_LIB_MKDIRS = [ "**/*/" ]
+PKG_LIB_FILES = [ "**/*.rb" ]
+PKG_LIB_DEPRECATE = []
+
+# tests
+PKG_TEST_DIR = 'test'
+PKG_TEST_FILES = [ "test/*_test.rb", "test/**/*_test.rb" ]
+=end

@@ -1,0 +1,544 @@
+# MIterBox - Miter, a Graphical Ascii Form and Table Template Tool
+# Copyright (c) 2002 Thomas Sawyer, Ruby License
+
+require 'tomslib/tomslib/rubylib'
+require 'tomslib/tomslib/filefetch'
+#require 'miterbox/boxconsole'
+
+module MiterBox
+
+  #
+  module Miter_Common
+    
+    def split_class(symbol)
+      dot = symbol.rindex(/\.\w+\s*$/)  # location of the final period (outside of any brackets)
+      if dot
+        identity = symbol[0...dot].strip
+        classification = symbol[dot+1..-1].strip
+      else
+        identity = symbol.strip
+        classification = nil
+      end
+      return identity, classification
+    end
+
+  end
+
+  #
+  module Miter_Prefix
+  
+    @@prefix = ''
+    
+    def Miter_Prefix.prefix=(prefix)
+      @@prefix = prefix
+    end
+  
+    def fix_name(name)
+      if name[0,1] == '^'
+        return "#{@@prefix}#{name[1..-1].strip}"
+      else
+        return name.strip
+      end
+    end
+    
+  end
+  
+  
+  #
+  class Miter
+
+    include Miter_Common
+
+    #def put_widgets
+    #  puts box_widgets.inspect
+    #end
+
+    def initialize(box=nil)
+      if box
+        extend box
+      else
+        raise 'no box target given'
+        #extend BoxConsole
+      end
+      @formats = {}
+      @attributes = {}
+      @style = {}
+      @main = nil
+      @layed = false
+    end
+
+    #
+    def set(formats, attributes={}, style={})
+      @formats = formats
+      @attributes = attributes
+      @style = style
+    end
+
+    #
+    def lay(layout_file, cells, prefix='', disable=[])
+      @layout_file = File.expand_path(layout_file)
+      @layout_path = File.dirname(layout_file)
+      if !File.exists?(@layout_file)
+        raise 'layout template file does not exist'
+      end
+      @layout = ''
+      File.open(@layout_file) { |f| @layout << f.read }
+      if @layout.strip == ''
+       raise 'layout template file was empty'
+      end
+      @cells = cells
+      @disable = disable
+      @tables = []
+      Miter_Prefix.prefix = prefix
+      parse
+      @layed = true
+    end
+
+    
+    private  #-----------------------------------------------------------------
+
+    # external subtitutions
+    def external_sub(layout)
+      layout.gsub!(/&.+$/) do |match|
+        sublayout_file = match[1..-1].strip
+        if is_relative?(sublayout_file)
+          sublayout_file = "#{@layout_path}/#{sublayout_url}"
+        end
+        sublayout_file = File.expand_path(sublayout_file)
+        sublayout = ''
+        File.open(sublayout_file) { |f| sublayout << f.read }
+        external_sub(sublayout << "\n")
+      end
+      return layout
+    end
+  
+    #
+    def parse
+      @layout = external_sub(@layout)
+      #
+      lines = @layout.split("\n").collect { |line| line.strip }         # split layout into lines array
+      lines = lines.select { |line| line != '' and line[0..0] != '#' }  # remove blank lines and remarks
+      lines.reverse!              # work backwards
+      table_scale = ''
+      table_lines = []
+      lines.each do |line|        # loop through each line
+        if line =~ /[-=+\|]/      # if line is a table construct 
+          table_lines << line
+        elsif line[0..0] == '!'
+          table_scale = line
+        else                      # hit a table title.class
+          table_name, table_class = split_class(line.strip)
+          @tables << Miter_Table.new(table_name, table_class, table_lines.reverse, table_scale)
+          table_scale = ''
+          table_lines = []
+        end
+      end
+      @main = @tables.last
+    end
+    
+    #
+    def repeat_length(section)
+      section.cells.each do |cell|
+        cell.elements.each do |element|
+          if @cells[element.name].is_a?(Array) and element.type_name != 'label'
+            return @cells[element.name].length
+          end
+        end
+      end
+      return 0  # is no array found
+    end
+    
+    #
+    def apply_format(avalue, aname, aclass)
+      if @formats.has_key?("#{aname}.#{aclass}")
+        return @formats["#{aname}.#{aclass}"] % avalue.to_s
+      elsif @formats.has_key?(aname)
+        return @formats[aname] % avalue.to_s
+      elsif @formats.has_key?(".#{aclass}")
+        return @formats[".#{aclass}"] % avalue.to_s
+      else
+        return avalue
+      end
+    end
+
+    #
+    def get_attribute(aname, aclass)
+      a = {}
+      if @attributes.has_key?(".#{aclass}")
+        a.update(@attributes[".#{aclass}"])
+      end
+      if @attributes.has_key?(aname)
+        a.update(@attributes[aname])
+      end
+      if @attributes.has_key?("#{aname}.#{aclass}")
+        a.update(@attributes["#{aname}.#{aclass}"])
+      end
+      return a
+    end
+    
+    #
+    def table?(table_name)
+      @tables.detect { |table| table.name == table_name }
+    end
+    
+  end
+
+  #
+  class Miter_Table
+  
+    include Miter_Common
+    include Miter_Prefix
+    
+    attr_reader :name, :class_name, :scale, :sections
+  
+    def initialize(name, class_name, lines, scale='')
+      @name = fix_name(name)
+      @class_name = class_name
+      @scale = scale.strip.split('!').collect { |s| s.strip.empty? ? 'auto' : s.strip.downcase }[1..-1]
+      @scale = [] if not @scale
+      @sections = []
+      parse(lines)
+    end
+    
+    def parse(lines)
+      section_lines = []
+      lines.each do |line|
+        if not section_lines.empty? and line[0..1] == '+='
+          section_lines << line
+          @sections << Miter_Section.new(section_lines, @scale)
+          section_lines = [line]
+        else
+          section_lines << line
+        end
+      end
+      # finish off last section
+      if not section_lines.empty? 
+        @sections << Miter_Section.new(section_lines)
+      end
+    end
+  
+  end
+  
+  #
+  class Miter_Section
+  
+    attr_reader :repeat, :cells, :scale
+  
+    def initialize(lines, scale=[])
+      @scale = scale
+      @repeat = (lines[0][0..1] == '+=' and lines[-1][0..1] == "+=")
+      @cells = []
+      parse(lines)
+      @cells.sort!
+    end
+    
+    #
+    def parse(lines)
+      
+      # build character grid
+      @grid = []
+      lines.each do |line|
+        @grid << []
+        line.each_byte do |c|
+          @grid.last << c.chr
+        end
+      end
+      
+      # get height and width in characters
+      @width = @grid[0].length
+      @height = @grid.length
+    
+      row = -1
+      col = -1
+      colspan = 1
+      rowspan = 1
+      row_y = -1
+      @height.times do |y|
+        @width.times do |x|
+          if check_upperleft(x,y)  # new cell
+            if row_y == y  # new column
+              col += 1 + colspan - 1
+            else           # new row
+              row += 1
+              col = 0
+              row_y = y
+            end
+            topside, rightside, leftside, bottomside = trace(x,y)
+            colspan = [topside.count('+'), bottomside.count('+')].max - 1
+            rowspan = [rightside.count('+'), leftside.count('+')].max - 1
+            width = calc_width(col, colspan, topside.length, @width)
+            content = scan_cell(x, y, topside.length, leftside.length)
+            @cells << Miter_Cell.new(x, y, col, row, colspan, rowspan, width, content)
+          end
+        end
+      end
+      
+    end
+
+    # calculates cell width including its colspan
+    # this is mostly for the sake of html
+    def calc_width(col, colspan, length, width)
+      if @scale.empty?
+        width = "#{100*length/width}%"
+      else
+        warr = @scale[col,colspan]
+        if warr.length == 1
+          if warr[0] == 'auto'
+            return nil
+          else
+            return warr[0]
+          end
+        elsif warr.include?('auto') or warr.include?('')
+          return nil  # auto is html default        
+        else
+          ws = 0
+          apercentage = false
+          afixedwidth = false
+          warr.each do |w|
+            ws += w.to_i
+            if w[-1,1] == '%'
+              apercentage = true
+            else
+              afixedwidth = true
+            end
+          end
+          if apercentage and afixedwidth
+            return nil  # both kinds unreconcilable
+          elsif apercentage and not afixedwidth
+            return "#{ws}%"
+          else
+            return "#{ws}"
+          end
+        end
+      end
+      return nil  # should never get here, but just in case
+    end
+
+    #
+    def trace(x, y)
+      # top and right
+      i = 0
+      j = 0
+      # top side
+      topside = ''
+      (x...@width).each do |i|
+        topside << space(i, y)
+        break if check_upperright(i, y) and i != x
+      end
+      # right side
+      rightside = ''
+      (y...@height).each do |j|
+        rightside << space(i, j)
+        break if check_lowerright(i, j) and j != y
+      end
+      # left and bottom
+      i = 0
+      j = 0
+      # left
+      leftside = ''
+      (y...@height).each do |j|
+        leftside << space(x, j)
+        break if check_lowerleft(x, j) and j != y
+      end
+      # bottom side
+      bottomside = ''
+      (x...@width).each do |i|
+        bottomside << space(i, j)
+        break if check_lowerright(i, j) and i != x
+      end
+      # all done trace
+      return [topside, rightside, leftside, bottomside]
+    end
+    
+    #
+    def scan_cell(x, y, w, h)
+      contains = ''
+      x0 = x + 1
+      y0 = y + 1
+      x1 = x + w - 2
+      y1 = y + h - 2
+      (y0..y1).each do |j|
+        contains << @grid[j][x0..x1].join
+      end
+      return contains
+    end
+    
+    #
+    def check_upperleft(x, y)
+      (space(x,y) == '+' and space(x,y+1) == '|' and (space(x+1,y) == '-' or space(x+1,y) == '='))
+    end
+    
+    def check_lowerleft(x, y)
+      (space(x,y) == '+' and space(x,y-1) == '|' and (space(x+1,y) == '-' or space(x+1,y) == '='))
+    end
+    
+    def check_upperright(x, y)
+      (space(x,y) == '+' and space(x,y+1) == '|' and (space(x-1,y) == '-' or space(x-1,y) == '='))
+    end
+    
+    def check_lowerright(x, y)
+      (space(x,y) == '+' and space(x,y-1) == '|' and (space(x-1,y) == '-' or space(x-1,y) == '='))
+    end
+  
+    #def check_boundry(x, y)
+    #  ['+', '|', '-', '='].include?(space(x, y))
+    #end
+    
+    #
+    def space(x,y)
+      return nil if x < 0
+      return nil if y < 0
+      return nil if x >= @width
+      return nil if y >= @height
+      @grid[y][x]
+    end
+    
+  end
+
+  #
+  class Miter_Cell
+    
+    include Miter_Common
+  
+    TOKENS = { '<'=>'>', '['=>']', '{'=>'}', '('=>')', '&'=>'&', '*'=>'*', '#'=>'#', '"'=>'"', "'"=>"'"}
+  
+    attr_reader :x, :y, :col, :row, :colspan, :rowspan, :width, :class_name, :alignment, :elements, :content
+  
+    def initialize(x, y, col, row, colspan, rowspan, width, content)
+      @x = x
+      @y = y
+      @col = col
+      @row = row
+      @colspan = colspan
+      @rowspan = rowspan
+      @width = width
+      @class_name = ''
+      @alignment = 'left'
+      @content = content
+      @elements = []
+      parse(content)
+    end
+    
+    #
+    def parse(content)
+
+      # alignment
+      md = /\n(\s*)\S.+\S(\s*)\n/.match("\n#{content}")
+      if md
+        if md[1].length == md[2].length
+          @alignment = 'center'
+        elsif md[1].length < md[2].length
+          @alignment = 'left'
+        elsif md[1].length > md[2].length
+          @alignment = 'right'
+        end
+      end
+      
+      # classification
+      symbols, @class_name = split_class(content)
+      symbols_array = tokenizer(symbols)
+      symbols_array.each do |symbol|
+        @elements << Miter_Element.new(symbol)
+      end
+    end
+
+    #
+    # (special thanks to sean russell)
+    def tokenizer(string)
+      items = []
+      while string.size > 0
+        if TOKENS.keys.include?(string[0,1])
+          end_index = string.index(TOKENS[string[0,1]], 1)
+          raise "bad end_index for #{string}" if not end_index
+          item = string[0..end_index]
+          items << item
+          string = string[end_index+1..-1]
+          while item.count(item[0,1]) > item.count(TOKENS[item[0,1]])
+            end_index = string.index(TOKENS[item[0,1]])
+            item << string[0..end_index]
+            string = string[end_index+1..-1]
+          end
+        else
+          end_index = string.index(/([[({<&*#"'^\s]|\z)/, 1)
+          item = string[0..end_index-1].strip
+          items << item if not item.empty?
+          string = string[end_index..-1]
+        end
+      end
+      items
+    end
+    
+    #
+    def <=>(b)
+      if self.y < b.y
+        return -1
+      elsif self.y == b.y and self.x < b.x
+        return -1
+      elsif self.y == b.y and self.x == b.x
+        return 0
+      else
+        return 1
+      end  
+    end
+    
+  end  # Cell
+
+  #
+  class Miter_Element
+    
+    include Miter_Common
+    include Miter_Prefix
+  
+    attr_reader :symbol, :name, :type_name, :class_name, :size
+  
+    def initialize(symbol)
+      @symbol = symbol
+      @name = nil
+      @type_name = nil
+      @class_name = nil
+      @size = nil
+      parse
+    end
+  
+    def parse
+      if not @symbol.empty?
+        case @symbol[0..0]
+        when '"'                                                                  # Label
+          @type_name = 'label'
+          @name = symbol[1...-1]
+        when '*'                                                                  # Hidden Data
+          @type_name = 'hidden'
+          @name, @class_name = split_class(@symbol[1...-1])
+          @name = fix_name(@name)
+        when '['                                                                  # Text or Textarea
+          @size = @symbol.count('[')
+          @type_name = 'text'
+          @name, @class_name = split_class(@symbol[@size...-(@size)])
+          @name = fix_name(@name)
+        when '<'                                                                  # Button
+          @type_name = 'button'
+          @name, @class_name = split_class(@symbol[1...-1])
+        when '{'                                                                  # Select
+          @size = @symbol.count('{')
+          @type_name = 'select'
+          @name, @class_name = split_class(@symbol[@size...-(@size)])
+          @name = fix_name(@name)
+        when '('                                                                  # Radio
+          @size = @symbol.count('(')
+          @type_name = 'radio'
+          @name, @class_name = split_class(@symbol[@size...-(@size)])
+          @name = fix_name(@name)
+        when '#'
+          @type_name = 'counter'                                                  # Counter
+          @name = symbol[1...-1]
+        else
+          @type_name = 'general'                                                  # General Substitution
+          @name = fix_name(@symbol)
+        end
+      end
+    end
+  
+  end  # Miter_Element
+
+end  # MiterBox
+

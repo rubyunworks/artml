@@ -1,0 +1,35 @@
+--- !artml.rubyforge.org,2004/layout |
+
+hello_world_4
++--------------------------------+
+| hello_text .cell1              |
++--------------------------------+
+| YourName  [your_name]          |
++--------------------------------+
+
+--- !artml.rubyforge.org,2004/style
+
+your_name:
+  font_size: 12pt
+
+.cell1:
+  background: yellow
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: "Hello World Example"
+
+hello_world_3:
+  action: index.html
+  
+hello_text: h2. This is a test!
+
+YourName:
+  value: 'You Name:'
+  
+your_name:
+  value: "Put your name here."
+
+
+  

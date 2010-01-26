@@ -1,0 +1,14 @@
+--- !artml.rubyforge.org,2004/layout |
+
+hello_world_2 .table
++--------------+
+|  hello_text  |
++--------------+
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: 'Example #2'
+
+hello_text:
+  value: "Hello World!"

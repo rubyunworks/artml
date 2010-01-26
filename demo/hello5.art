@@ -1,0 +1,33 @@
+--- !artml.rubyforge.org,2004/layout |
+
+hello_world_5
++-----------------------------------+
+| hello_cell "hello_text"           |
++-----------------------------------+
+| your_name_lbl [your_name]         |
+| your_info_lbl [[[[[ test ]]]]]    |
++-----------------------------------+
+
+--- !artml.rubyforge.org,2004/style
+
+hello_cell:
+  background: red
+
+your_name:
+  font_size: 16pt
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: "Hello World Example"
+
+hello_world_3:
+  action: index.html
+
+hello_text    : h2. This is a test!
+
+your_name     : Put your name here.
+
+your_name_lbl : Your Name
+
+your_info_lbl : Your Info

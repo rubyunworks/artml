@@ -1,0 +1,18 @@
+# pass #1 subsititue artml forms/tables.
+# pass #2 subsitute variables.
+# pass #3 subsitute markup.
+
+--- !artml.rubyforge.org,2004/layout |
+
+/table example1 .a .b
++------------------+
+|     #{hw}        |
++------------------+
+/
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: 'Example #1'
+
+hw: Hello World!

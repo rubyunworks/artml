@@ -1,0 +1,27 @@
+--- !artml.rubyforge.org,2004/layout |
+
+hello_world_3
++--------------------------------+
+| hello_text                     |
++--------------------------------+
+| 'Your Name'   [your_name]      |
++--------------------------------+
+
+--- !artml.rubyforge.org,2004/style
+
+your_name:
+  font_size: 12pt
+
+--- !artml.rubyforge.org,2004/components
+
+meta:
+  title: "Hello World Example"
+
+hello_world_3:
+  action: index.html
+
+hello_text: !!field
+  value: "Hello World!"
+
+your_name:
+  value: "Put your name here."

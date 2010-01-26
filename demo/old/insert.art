@@ -1,0 +1,44 @@
+--- !artml.rubyforge.org,2004/art |
+  
+example1 .table_class
++---------------------------------------+----------------------+
+| [text .tx]                            | "Label" .label       |
++---------------------------------------+----------------------+
+| insert_table                          | general .general     |
+|                                       |                      |
++---------------------------------------+----------------------+
+! 10%                                   ! 45%                  !
+
+insert_table .inserter
++===================================+
+| [ra]                              |
++===================================+
+! auto                              !
+
+--- !artml.rubyforge.org,2004/meta
+
+title: Insert Test
+stylesheet: inserter.css
+  
+--- !artml.rubyforge.org,2004/style
+
+text:
+  background-color: blue
+insert_table:
+  font-size: 6pt
+.general:
+  background: yellow
+.tx:
+  font-family: sans-serif
+  font-size: 8pt
+.table_class:
+  cellpadding: 10px
+  cellspacing: 0px
+
+--- !artml.rubyforge.org,2004/data
+
+ra:
+  value:
+    - 1
+    - 2
+    - 3
